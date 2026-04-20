@@ -1,4 +1,4 @@
-# axum-guard
+# axum-guard-rs
 
 Application-layer security middleware for [axum](https://github.com/tokio-rs/axum). Part of the [guard ecosystem](https://github.com/rennf93).
 

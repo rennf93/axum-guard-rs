@@ -1,13 +1,13 @@
 [package]
-name = "axum-guard"
+name = "axum-guard-rs"
 version = "0.0.1"
 edition = "2024"
 description = "Application-layer security middleware for axum. Part of the guard ecosystem. WIP."
 license = "MIT"
-repository = "https://github.com/rennf93/axum-guard"
+repository = "https://github.com/rennf93/axum-guard-rs"
 readme = "README.md"
 keywords = ["security", "middleware", "api"]
 categories = ["web-programming"]
 
 [lib]
-name = "axum_guard"
+name = "axum_guard_rs"
