@@ -1,33 +1,12 @@
-"area: middleware":
+"area: lib":
   - changed-files:
       - any-glob-to-any-file:
-          - src/lib.rs
-          - src/middleware.rs
-          - src/middleware/**
-          - src/layer.rs
-          - src/service.rs
-
-"area: extractors":
-  - changed-files:
-      - any-glob-to-any-file:
-          - src/extractors.rs
-          - src/extractors/**
-
-"area: types":
-  - changed-files:
-      - any-glob-to-any-file:
-          - src/types.rs
-          - src/types/**
+          - src/**
 
 tests:
   - changed-files:
       - any-glob-to-any-file:
           - tests/**
-
-examples:
-  - changed-files:
-      - any-glob-to-any-file:
-          - examples/**
 
 documentation:
   - changed-files:
@@ -50,8 +29,6 @@ build:
   - changed-files:
       - any-glob-to-any-file:
           - Makefile
-          - Dockerfile
-          - compose.yml
           - rustfmt.toml
           - deny.toml
 
