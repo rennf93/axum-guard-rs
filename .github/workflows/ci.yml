@@ -18,7 +18,7 @@ env:
 
 jobs:
   check:
-    name: stable (check, fmt, clippy, test)
+    name: stable (check, fmt, clippy, test, doc)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,6 +27,34 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
+      # Supply-chain tradeoff, deliberate: these pin MOVING branches of the
+      # sibling crates, not immutable refs, because neither has a crates.io
+      # release yet. The Cargo.toml dependencies are local paths
+      # (../tower-guard-rs and, transitively, ../guard-core-rs) with
+      # documented TODOs to switch to versioned crates once they are tagged.
+      # Once both publish, these checkout steps drop in favor of the registry.
+      - name: Checkout tower-guard-rs (path dependency)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: rennf93/tower-guard-rs
+          ref: feat/engine-integration # TODO(engine): switch to master after this PR merges
+          path: tower-checkout
+          persist-credentials: false
+
+      - name: Checkout guard-core-rs (transitive path dependency)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: rennf93/guard-core-rs
+          ref: master
+          path: core-checkout
+          persist-credentials: false
+
+      - name: Place siblings at the path dependency locations
+        run: |
+          mv tower-checkout ../tower-guard-rs
+          mv core-checkout ../guard-core-rs
+
       - name: Install the stable Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1.16.1
         with:
@@ -40,6 +68,10 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: cargo test
         run: cargo test
+      - name: cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps
 
   msrv:
     name: msrv 1.92 (check, test)
@@ -51,6 +83,29 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
+      # Moving branches, same tradeoff as the stable job above.
+      - name: Checkout tower-guard-rs (path dependency)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: rennf93/tower-guard-rs
+          ref: feat/engine-integration # TODO(engine): switch to master after this PR merges
+          path: tower-checkout
+          persist-credentials: false
+
+      - name: Checkout guard-core-rs (transitive path dependency)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: rennf93/guard-core-rs
+          ref: master
+          path: core-checkout
+          persist-credentials: false
+
+      - name: Place siblings at the path dependency locations
+        run: |
+          mv tower-checkout ../tower-guard-rs
+          mv core-checkout ../guard-core-rs
+
       - name: Install the MSRV Rust toolchain (1.92)
         uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1.16.1
         with:

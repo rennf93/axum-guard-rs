@@ -3,82 +3,98 @@ Guidance for AI agents (including Claude Code) working in this repository.
 
 ## Project Overview
 
-axum-guard-rs is the reserved namespace for the axum adapter of the Guard ecosystem. It will wire the [guard-core-rs](https://github.com/rennf93/guard-core-rs) detection engine into axum as application-layer security middleware.
-
-**It is currently a scaffold with no implementation.** Verify this before trusting any other description:
-
-- `src/lib.rs` is the stock 14-line `cargo new` scaffold: one `add(left, right)` function and one trivial unit test. There is no middleware, no guard code, no placeholder types.
-- `Cargo.toml` declares version 0.0.1, edition 2024, MIT, and **no dependencies at all** (not even axum or tower).
-- No workflow runs any cargo command. The five workflows under `.github/` are label, greeting, stale, and issue-summary automation only.
-- `README.md` status line: "Reserved namespace. Implementation pending."
+axum-guard-rs is the axum adapter for the Guard ecosystem. It provides `with_guard(config)`, returning the [`GuardLayer`](https://docs.rs/tower/latest/tower/trait.Layer.html) from [tower-guard-rs](https://github.com/rennf93/tower-guard-rs), which drops straight into `Router::layer`. Axum middleware is tower middleware, so there is no axum-specific screening code here: this crate is the axum-facing surface (constructor, re-exports, axum-typed tests) over the shared `tower` implementation, backed by the [guard-core-rs](https://github.com/rennf93/guard-core-rs) detection engine.
 
 - **Repository**: https://github.com/rennf93/axum-guard-rs
-- **Language**: Rust, edition 2024 (requires Rust 1.85 or newer)
-- **License**: MIT
-- **Version**: 0.0.1 (pre-release, not published to crates.io)
-- **Status**: scaffold, implementation pending
+- **Language**: Rust, edition 2024, MSRV 1.92
+- **License**: MIT OR Apache-2.0
+- **Version**: 0.1.0
+- **Status**: implemented and tested. Not published to crates.io: dependencies are local paths until the siblings are tagged (see [Sibling Dependencies](#sibling-dependencies)).
 
 ## Ecosystem Position
 
 ```
-guard-core (Python)      <- Reference implementation and spec owner (specs/01-14, spec 4.0.2)
-├── guard-core-rs        <- Rust detection engine (pre-1.0: CPU-bound pipeline + conformance harness)
-│   ├── tower-guard-rs   <- Sibling adapter (scaffold; generic tower::Layer/Service foundation)
-│   ├── axum-guard-rs    <- This repo: axum adapter (scaffold)
-│   ├── actix-guard-rs   <- Sibling adapter (scaffold)
-│   └── rocket-guard-rs  <- Sibling adapter (scaffold)
-└── fastapi-guard, flaskapi-guard, djapi-guard, tornadoapi-guard  <- Python adapters
+guard-core (Python)                  <- Reference implementation, spec owner
+├── guard-core-rs                    <- Rust engine crate: guard-core-engine (detect, preprocessor, semantic, compiler)
+│   ├── tower-guard-rs               <- Framework-agnostic tower Layer + Service
+│   │   └── axum-guard-rs (this)     <- axum surface: with_guard, re-exports, axum-typed tests
+│   ├── actix-guard-rs               <- Adapter (scaffold)
+│   └── rocket-guard-rs              <- Adapter (scaffold)
+└── guard-core-ts                    <- TypeScript port (source of the adapter view mapping)
 ```
 
-The engine crate stays framework-free (no I/O, no tokio, no framework types). This repository is the opposite side of that boundary: framework glue only. No security logic belongs here; it belongs in guard-core-rs.
+The security behavior lives in `tower-guard-rs` and the engine. This crate owns the axum integration contract: it must keep working against `axum::body::Body` and `Router::layer`.
 
-## Status
+## Boundary Rules
 
-Scaffold, implementation pending. Concretely, what does not exist:
+- **No security logic in this crate**, and no duplicated screening logic either: request inspection belongs in `tower-guard-rs`, detection in the engine.
+- **No new middleware implementation.** Do not reimplement body buffering or view scanning against `axum::body::Body`. If an axum-specific need appears (for example `axum::extract::Request` handling), the fix goes in `tower-guard-rs` as a generic mechanism.
+- **Keep the dependency set minimal**: `axum` plus `tower-guard-rs` in `[dependencies]`. Test-only crates (tokio, tower `util`, serde_json, http-body-util) stay in `[dev-dependencies]`.
+- **Fail-secure is inherited, not re-decided.** Any change that would make a body read error or engine panic pass through must be rejected.
 
-- No dependency on axum, tower, or guard-core-rs
-- No layer, middleware, or service implementation, no configuration type, no response mapping
-- No tests beyond the stock `cargo new` stub
-- No CI that compiles, tests, or lints the crate
-- No published release (version 0.0.1 is a placeholder)
+## How the Integration Works
 
-Do not describe this crate as functional, integrated, or published in docs, issues, or PRs.
+- `with_guard(config) -> GuardLayer` (re-exported from `tower-guard-rs`), applied with `Router::layer` or `Router::route_layer`.
+- `GuardService<Route>` satisfies axum's `Router::layer` bounds: `Response = Response<GuardBody<axum::body::Body>>`, which is `IntoResponse` because `GuardBody<Body>: http_body::Body<Data = Bytes, Error = BoxError> + Send + 'static`.
+- `axum::body::Body` implements `From<Bytes>` (the rebuild bound the guard relies on) and `http_body::Body<Data = Bytes, Error = BoxError>`. It does **not** implement `From<Full<Bytes>>`; do not add that assumption.
+- Extraction is unaffected: `State`, `Json`, and other extractors run in handlers after the guard forwards the request.
 
-## Intended Integration
+## Sibling Dependencies
 
-Roadmap, not reality. The intended design, consistent with `specs/impl/rs.md` in the reference repo and the engine's current API:
-
-1. **Dependencies**: `guard-core-rs` (facade crate, re-exports `compiler`, `preprocessor`, `semantic`) plus `axum` (and/or `tower`). Versions to be chosen when implementation starts.
-2. **Middleware**: axum is tower-based, so the natural shape is either a `tower::Layer`/`Service` pair or an `axum::middleware::from_fn` handler that wraps the rest of the router. tower-guard-rs is planned as the generic tower foundation; if it lands first, this crate becomes a thin axum-specific convenience over it.
-3. **Per request**: extract method, path, headers, client IP, and body; call the CPU-bound engine functions synchronously (the engine has no I/O and no tokio dependency, so it can run inside the async handler without spawning); short-circuit with a 403 response when the engine returns a threat verdict.
-4. **Out of scope for now**: rate limiting state, Redis, IP intelligence, logging, and event dispatch. Those are later sections of the reference spec and are not part of guard-core-rs at 0.0.1. Do not pull them into the engine.
-5. **Configuration**: no config surface exists yet (section 02 of the reference spec is not ported). Design it only when guard-core-rs provides one.
-
-Honesty constraint: guard-core-rs at 0.0.1 implements preprocessing, semantic analysis, and pattern compilation, and lacks the 4.x pattern-table scan stage. Any integration built today is partial. Say so in design notes.
+- `tower-guard-rs = { path = "../tower-guard-rs", version = "0.1.0" }` and, transitively, `guard-core-engine = { path = "../guard-core-rs/crates/guard-core-engine" }`.
+- **TODO(engine):** switch both to versioned crates.io dependencies once `tower-guard-rs` and `guard-core-rs` are tagged and published.
+- CI checks out `rennf93/tower-guard-rs` (currently `feat/engine-integration`, to be flipped to `master` after that PR merges) and `rennf93/guard-core-rs` (`master`), moving both to the path locations. Moving branches are a deliberate, documented supply-chain tradeoff, mirroring `laravel-guard`/`symfony-guard`.
+- When `tower-guard-rs` merges to master, update `.github/workflows/ci.yml` (two `ref:` lines), the README, and this file in the same change.
 
 ## Development Commands
 
-No Makefile and no CI. Commands that work on the scaffold as it stands:
+CI is the source of truth (`.github/workflows/ci.yml`); there is no Makefile.
 
 ```bash
-cargo build
-cargo test
-cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
+cargo check --all-targets                              # type check
+cargo fmt --all -- --check                             # format gate
+cargo clippy --all-targets -- -D warnings              # lint gate (pedantic is warn, so -D warnings enforces it)
+cargo test                                             # integration + doctests
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps         # rustdoc gate
 ```
 
-The repository's first-contribution checklist (text inside `.github/workflows/greetings.yml`) cites `cargo fmt --check`, `cargo clippy --all-features --all-targets -- -D warnings`, `cargo test --all-features`, and `RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps` as the expected bar. No workflow enforces them today; treat them as the target gate once implementation starts.
+Sibling checkouts at `../tower-guard-rs` and `../guard-core-rs` are required for every command.
 
-## Technology Stack
+## Project Structure
 
-- **Rust**, edition 2024. No `rust-toolchain.toml`; any recent stable toolchain (1.85+) builds the scaffold.
-- **Dependencies**: none today. Planned: `guard-core-rs` and `axum` (tower-compatible by construction).
-- **Tooling**: no rustfmt.toml, clippy.toml, deny.toml, or pre-commit config yet.
-- **Automation**: 5 workflows (greetings, labeler, stale, summary, sync-labels) plus `.github/labeler.yml` and `.github/labels.yml`. None of them compile code.
+```
+axum-guard-rs/
+├── src/lib.rs            # crate docs, with_guard, re-exports from tower-guard-rs
+├── tests/axum.rs         # Router::layer behavior pinned against axum::body::Body
+└── .github/workflows/ci.yml
+```
+
+## Testing
+
+- `cargo test` runs 12 integration tests plus 2 doctests. All must pass.
+- Coverage must include: benign GET via the router, JSON body round-trip through `Json` extraction, `State` extraction unaffected, XSS body blocked, traversal in path blocked (`url_path`), command injection in query blocked (`query_param`), XSS in a scanned header blocked, benign `Authorization`/`Cookie`/`User-Agent` headers not tripping the guard, oversize body `413`, unmatched route still `404`, 16 concurrent requests screened independently, and `poll_ready` forwarding through the router.
+- Panic recovery is tested in `tower-guard-rs` (its `#[cfg(test)]` detector seam is crate-private); this crate relies on that behavior instead of exposing a public injection API.
+- Payloads must come from the spec 4.0.2 conformance corpus (`guard-core-rs/conformance/guard-core-spec-4.0.2/cases/`) so they are guaranteed threats. Prefer extending coverage in `tower-guard-rs` when the case is not axum-specific.
+
+## Code Quality Standards
+
+- `[lints]` in `Cargo.toml`: `unsafe_code = "forbid"`, `clippy::all = "deny"`, `clippy::pedantic = "warn"` (enforced as errors by CI's `-D warnings`). `clippy::nursery` is deliberately not enabled: its lints drift between clippy versions.
+- No `#[allow(...)]` in `src/`.
+- rustdoc warnings are errors in CI.
+- `axum` is declared with `default-features = false, features = ["http1", "json", "tokio"]`; add a feature deliberately (and update this file) if a new one is needed.
+
+## Best Practices
+
+1. **Keep this crate thin.** New behavior belongs in `tower-guard-rs` (generic) or the engine (security), not here.
+2. **Keep the doctests compiling**: `src/lib.rs` and README examples are part of the test suite.
+3. **Run the full local gate before committing**: fmt, clippy, test, doc. CI runs all four.
+4. **Conventional commits** (`feat:`, `fix:`, `docs:`, `ci:`), matching history. No AI attribution in commit messages.
+5. **Document status honestly.** Nothing here is published; say so rather than implying a crates.io release.
+6. **Update the README behavior tables** when the inherited mapping, response shapes, or cap semantics change (and mirror the change in `tower-guard-rs`).
 
 ## Related Projects
 
-- [guard-core-rs](https://github.com/rennf93/guard-core-rs): the engine this adapter will wire in (pre-1.0, work in progress).
-- Sibling adapters: [tower-guard-rs](https://github.com/rennf93/tower-guard-rs) (generic tower foundation), [actix-guard-rs](https://github.com/rennf93/actix-guard-rs), [rocket-guard-rs](https://github.com/rennf93/rocket-guard-rs).
-- [guard-core](https://github.com/rennf93/guard-core): Python reference implementation and spec owner (spec 4.0.2).
-- [fastapi-guard](https://github.com/rennf93/fastapi-guard): the most mature adapter in the ecosystem, a useful reference for feature coverage.
+- [tower-guard-rs](https://github.com/rennf93/tower-guard-rs): the generic `tower` implementation this crate composes.
+- [guard-core-rs](https://github.com/rennf93/guard-core-rs): the Rust detection engine.
+- [guard-core-ts](https://github.com/rennf93/guard-core-ts): TypeScript port, source of the view mapping this adapter follows.
+- [guard-core](https://github.com/rennf93/guard-core): Python reference implementation and spec owner.

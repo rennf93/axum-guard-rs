@@ -1,14 +1,41 @@
 [package]
 name = "axum-guard-rs"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.92"
-description = "Application-layer security middleware for axum. Part of the guard ecosystem. WIP."
+description = "Application-layer security middleware for axum, powered by the guard-core-rs engine. Part of the guard ecosystem."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rennf93/axum-guard-rs"
 readme = "README.md"
-keywords = ["security", "middleware", "api"]
+keywords = ["security", "middleware", "api", "axum", "tower"]
 categories = ["web-programming"]
 
 [lib]
 name = "axum_guard_rs"
+
+[dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+# TODO(engine): switch to the versioned crates.io dependency once
+# tower-guard-rs is tagged and published. A sibling checkout is required for
+# local builds and CI checks out one (see .github/workflows/ci.yml);
+# tower-guard-rs itself carries the guard-core-rs engine dependency.
+tower-guard-rs = { path = "../tower-guard-rs", version = "0.1.0" }
+
+[dev-dependencies]
+bytes = "1.10"
+http = "1.3"
+http-body-util = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", default-features = false, features = ["util"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all                     = { level = "deny", priority = -1 }
+pedantic                = { level = "warn", priority = -1 }
+missing_errors_doc      = "allow"
+missing_panics_doc      = "allow"
+module_name_repetitions = "allow"
