@@ -43,8 +43,7 @@ The security behavior lives in `tower-guard-rs` and the engine. This crate owns 
 
 - `tower-guard-rs = { path = "../tower-guard-rs", version = "0.1.0" }` and, transitively, `guard-core-engine = { path = "../guard-core-rs/crates/guard-core-engine" }`.
 - **TODO(engine):** switch both to versioned crates.io dependencies once `tower-guard-rs` and `guard-core-rs` are tagged and published.
-- CI checks out `rennf93/tower-guard-rs` (currently `feat/engine-integration`, to be flipped to `master` after that PR merges) and `rennf93/guard-core-rs` (`master`), moving both to the path locations. Moving branches are a deliberate, documented supply-chain tradeoff, mirroring `laravel-guard`/`symfony-guard`.
-- When `tower-guard-rs` merges to master, update `.github/workflows/ci.yml` (two `ref:` lines), the README, and this file in the same change.
+- CI checks out `rennf93/tower-guard-rs` (`master`, flipped after the engine integration merged) and `rennf93/guard-core-rs` (`master`), moving both to the path locations. Moving branches are a deliberate, documented supply-chain tradeoff, mirroring `laravel-guard`/`symfony-guard`.
 
 ## Development Commands
 
@@ -54,19 +53,49 @@ CI is the source of truth (`.github/workflows/ci.yml`); there is no Makefile.
 cargo check --all-targets                              # type check
 cargo fmt --all -- --check                             # format gate
 cargo clippy --all-targets -- -D warnings              # lint gate (pedantic is warn, so -D warnings enforces it)
-cargo test                                             # integration + doctests
+cargo test                                             # integration + doctests (workspace: adapter + examples)
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps         # rustdoc gate
+cargo deny check                                       # advisories, licenses, bans, sources (deny.toml)
 ```
 
 Sibling checkouts at `../tower-guard-rs` and `../guard-core-rs` are required for every command.
+
+The example apps under `examples/` build and run like any workspace member:
+
+```bash
+docker compose -f examples/simple_app/docker-compose.yml up --build -d --wait    # live smoke stack
+SMOKE_PORT=8091 docker compose -f examples/simple_app/docker-compose.yml up ...   # remapped host port
+```
+
+The compose stacks also need the sibling checkouts: the Dockerfile receives
+their source through compose `additional_contexts` entries named `tower` and
+`engine` pointing at `../../../tower-guard-rs` and `../../../guard-core-rs`
+(relative to the compose file). The `live-smoke` workflow runs the simple_app
+stack and the full curl assertion matrix on every push/PR; `upstream-drift`
+runs the suite daily against fresh `tower-guard-rs@master` and
+`guard-core-rs@master` checkouts placed at the path dependency locations.
+`security.yml` runs `cargo deny check` on push/PR and weekly. `release.yml`
+gates `v*` tag pushes with the full suite plus a tag/version consistency
+check; crates.io publishing is manual and owner-gated.
 
 ## Project Structure
 
 ```
 axum-guard-rs/
+├── Cargo.toml / Cargo.lock          # adapter package + workspace (examples are members)
+├── deny.toml                        # cargo-deny: advisories, licenses, bans, sources
 ├── src/lib.rs            # crate docs, with_guard, re-exports from tower-guard-rs
 ├── tests/axum.rs         # Router::layer behavior pinned against axum::body::Body
-└── .github/workflows/ci.yml
+├── examples/
+│   ├── simple_app/       # minimal guarded Router: main.rs, Dockerfile, compose, README
+│   └── advanced_app/     # env-driven config, route-scoped guards: main.rs, Dockerfile, compose, README
+└── .github/
+    ├── workflows/ci.yml             # push/PR: fmt, clippy, test, doc, MSRV
+    ├── workflows/security.yml       # push/PR + weekly: cargo deny check
+    ├── workflows/live-smoke.yml     # push/PR: dockerized simple_app smoke with curl assertions
+    ├── workflows/upstream-drift.yml # daily: suite against siblings at master
+    ├── workflows/release.yml        # v* tag gate: matrix test + tag/version consistency
+    └── workflows/issue-link.yml     # PRs must reference an open issue
 ```
 
 ## Testing
@@ -87,10 +116,12 @@ axum-guard-rs/
 
 1. **Keep this crate thin.** New behavior belongs in `tower-guard-rs` (generic) or the engine (security), not here.
 2. **Keep the doctests compiling**: `src/lib.rs` and README examples are part of the test suite.
-3. **Run the full local gate before committing**: fmt, clippy, test, doc. CI runs all four.
-4. **Conventional commits** (`feat:`, `fix:`, `docs:`, `ci:`), matching history. No AI attribution in commit messages.
-5. **Document status honestly.** Nothing here is published; say so rather than implying a crates.io release.
-6. **Update the README behavior tables** when the inherited mapping, response shapes, or cap semantics change (and mirror the change in `tower-guard-rs`).
+3. **Run the full local gate before committing**: fmt, clippy, test, doc, cargo deny. CI runs all five.
+4. **Example apps are part of the workspace.** `examples/simple_app` and `examples/advanced_app` build with a plain `cargo build` from the repo root; when the adapter surface or response shapes change, update the examples and their READMEs (and re-run the live smoke assertions) in the same change.
+5. **Conventional commits** (`feat:`, `fix:`, `docs:`, `ci:`), matching history. No AI attribution in commit messages.
+6. **Document status honestly.** Nothing here is published; say so rather than implying a crates.io release. crates.io publishing is manual and owner-gated.
+7. **Update the README behavior tables** when the inherited mapping, response shapes, or cap semantics change (and mirror the change in `tower-guard-rs`).
+8. **Keep the engine surface claims honest.** guard-core-rs currently ships the CPU-bound detection pipeline only: no Redis, rate limiter, or ban manager. Do not document capabilities the engine does not expose.
 
 ## Related Projects
 
