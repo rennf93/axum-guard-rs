@@ -26,7 +26,11 @@ allow = [
 
 [bans]
 multiple-versions = "warn"
-wildcards = "deny"
+# Temporary until rennf93/tower-guard-rs#5 (parity branch) merges: the
+# tower-guard-rs@master checkout still declares its engine path dependency
+# without a version, which registers as a wildcard here. Tighten back to
+# "deny" once that lands and the sibling checkout carries the versioned dep.
+wildcards = "warn"
 
 [sources]
 unknown-registry = "deny"
