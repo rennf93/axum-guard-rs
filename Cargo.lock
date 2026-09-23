@@ -72,6 +72,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-guard-advanced-app"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-guard-rs",
+ "tokio",
+]
+
+[[package]]
 name = "axum-guard-rs"
 version = "0.1.0"
 dependencies = [
@@ -84,6 +93,15 @@ dependencies = [
  "tokio",
  "tower",
  "tower-guard-rs",
+]
+
+[[package]]
+name = "axum-guard-simple-app"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-guard-rs",
+ "tokio",
 ]
 
 [[package]]
