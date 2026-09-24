@@ -2,7 +2,7 @@
 
 Application-layer security middleware for [axum](https://github.com/tokio-rs/axum), powered by the [guard-core-rs](https://github.com/rennf93/guard-core-rs) detection engine. Part of the [guard ecosystem](https://github.com/rennf93).
 
-Docs: https://rennf93.github.io/axum-guard-rs/
+Docs: <https://rennf93.github.io/axum-guard-rs/>
 
 **Status:** Released. Version 1.0.0, published to crates.io. `with_guard(config)` returns a `tower` layer that drops straight into `Router::layer`.
 
