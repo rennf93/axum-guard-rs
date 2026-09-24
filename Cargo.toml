@@ -3,7 +3,7 @@ members = ["examples/simple_app", "examples/advanced_app"]
 
 [package]
 name = "axum-guard-rs"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.92"
 description = "Application-layer security middleware for axum, powered by the guard-core-rs engine. Part of the guard ecosystem."
@@ -18,11 +18,12 @@ name = "axum_guard_rs"
 
 [dependencies]
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
-# TODO(engine): switch to the versioned crates.io dependency once
-# tower-guard-rs is tagged and published. A sibling checkout is required for
-# local builds and CI checks out one (see .github/workflows/ci.yml);
-# tower-guard-rs itself carries the guard-core-rs engine dependency.
-tower-guard-rs = { path = "../tower-guard-rs", version = "0.1.0" }
+# tower-guard-rs 1.0.0 is published to crates.io (itself pinned to
+# guard-core-engine 4.0.4); the path points at a sibling tower-guard-rs
+# checkout so local builds and CI (see .github/workflows/ci.yml) exercise the
+# stack from source. The version pin stays in lockstep with the published
+# release.
+tower-guard-rs = { path = "../tower-guard-rs", version = "1.0.0" }
 
 [dev-dependencies]
 bytes = "1.10"
