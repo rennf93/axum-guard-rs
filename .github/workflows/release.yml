@@ -137,16 +137,40 @@ jobs:
         with:
           persist-credentials: false
 
+      # The root workspace (examples included) resolves the sibling path
+      # dependencies before packaging, so both must be checked out here too.
+      # The packaged crate itself ships the registry dependencies: packaging
+      # strips the paths and keeps the version pins, which already exist on
+      # crates.io.
+      - name: Checkout tower-guard-rs (path dependency)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rennf93/tower-guard-rs
+          ref: master
+          path: tower-checkout
+          persist-credentials: false
+
+      - name: Place tower-guard-rs at the path dependency location
+        run: mv tower-checkout ../tower-guard-rs
+
+      - name: Checkout guard-core-rs (path dependency)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rennf93/guard-core-rs
+          ref: master
+          path: core-checkout
+          persist-credentials: false
+
+      - name: Place guard-core-rs at the path dependency location
+        run: mv core-checkout ../guard-core-rs
+
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1.16.1
         with:
           rustflags: ""
 
-      # Packaging strips the path dependencies and re-resolves them from
-      # crates.io, where the pinned tower-guard-rs and engine versions
-      # already exist, so no sibling checkouts are needed here. Retried up
-      # to 3 times (crates.io transient 5xx). NOTE on reruns: crates.io
-      # rejects re-uploading an identical version.
+      # Retried up to 3 times (crates.io transient 5xx). NOTE on reruns:
+      # crates.io rejects re-uploading an identical version.
       - name: Publish axum-guard-rs
         run: |
           for attempt in 1 2 3; do
