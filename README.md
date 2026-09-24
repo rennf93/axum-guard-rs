@@ -2,15 +2,17 @@
 
 Application-layer security middleware for [axum](https://github.com/tokio-rs/axum), powered by the [guard-core-rs](https://github.com/rennf93/guard-core-rs) detection engine. Part of the [guard ecosystem](https://github.com/rennf93).
 
-**Status:** Implemented, version 0.1.0. `with_guard(config)` returns a `tower` layer that drops straight into `Router::layer`. Not yet published to crates.io: the dependencies are local paths for now (see [Engine dependency](#engine-dependency)).
+Docs: https://rennf93.github.io/axum-guard-rs/
+
+**Status:** Released. Version 1.0.0, published to crates.io. `with_guard(config)` returns a `tower` layer that drops straight into `Router::layer`.
 
 ## About
 
 The guard ecosystem provides application-layer API security middleware across multiple languages and frameworks:
 
-- **Python**: [fastapi-guard](https://github.com/rennf93/fastapi-guard), [flaskapi-guard](https://github.com/rennf93/flaskapi-guard), [dj-api-guard](https://github.com/rennf93/dj-api-guard), [tornado-api-guard](https://github.com/rennf93/tornado-api-guard)
+- **Python**: [fastapi-guard](https://github.com/rennf93/fastapi-guard), [flaskapi-guard](https://github.com/rennf93/flaskapi-guard), [djapi-guard](https://github.com/rennf93/djapi-guard), [tornadoapi-guard](https://github.com/rennf93/tornadoapi-guard)
 - **TypeScript**: guard-core-ts with adapters for Express, Fastify, Hono, NestJS
-- **Rust**: [guard-core-rs](https://github.com/rennf93/guard-core-rs) with adapters for [tower](https://github.com/rennf93/tower-guard-rs) (this repo wraps it), actix-web, and rocket
+- **Rust**: [guard-core-rs](https://github.com/rennf93/guard-core-rs) with adapters for [tower](https://github.com/rennf93/tower-guard-rs) (this repo wraps it), [actix-web](https://github.com/rennf93/actix-guard-rs), and [rocket](https://github.com/rennf93/rocket-guard-rs)
 
 Axum middleware is tower middleware, so this crate is the thin axum-facing surface over [tower-guard-rs](https://github.com/rennf93/tower-guard-rs): the `with_guard` constructor, the re-exports an axum application needs, and the axum-specific tests that pin behavior against `axum::body::Body`. It contains no security logic of its own.
 
@@ -62,12 +64,9 @@ Note that `Router::layer` applies the layer to registered routes; a request that
 
 ## Engine dependency
 
-Dependencies are local paths until the crates are tagged:
+`tower-guard-rs` 1.0.0 and `guard-core-engine` 4.0.4 are published to crates.io. The Cargo.toml pins those versions and also carries paths pointing at sibling checkouts (`../tower-guard-rs`, `../guard-core-rs/crates/guard-core-engine`) so local builds and CI compile the dependencies from source; consumers installing the crate from the registry resolve them normally.
 
-- `tower-guard-rs = { path = "../tower-guard-rs" }`, which transitively carries
-- `guard-core-engine = { path = "../guard-core-rs/crates/guard-core-engine" }`.
-
-CI checks out both sibling repositories (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)), mirroring the sibling adapter pattern in `laravel-guard`/`symfony-guard`. **TODO:** switch both to versioned crates once they are tagged and published.
+CI checks out both sibling repositories (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)), mirroring the sibling adapter pattern in `laravel-guard`/`symfony-guard`.
 
 The engine crate is used directly rather than through the `guard-core-rs` facade because the facade currently re-exports only `compiler`, `preprocessor`, and `semantic`; `detect` (the entry point the guard uses) is not re-exported there yet.
 
