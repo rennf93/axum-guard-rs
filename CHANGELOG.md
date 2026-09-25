@@ -19,3 +19,7 @@ All notable changes to this project.
 - `tower-guard-rs` dependency pinned to the published 1.0.0 release (path dep kept for local builds and CI against a sibling checkout)
 
 ## [Unreleased]
+
+### Changed
+
+- 403/413/500 short-circuit responses now carry the bare message (`Suspicious activity detected`, `Payload too large`, `Security check failed`) as `text/plain; charset=utf-8`, matching the Python family's block-response convention, instead of the JSON `{"detail":"..."}` shape (the bodies come from `tower-guard-rs`, so no code change was needed here)

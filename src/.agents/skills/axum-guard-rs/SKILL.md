@@ -26,7 +26,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 ## Behavior (inherited from tower-guard-rs)
 
 - Views: `url_path` (path, not `/`), `query_param` (query string), `header` (non-excluded names; `host`, `user-agent`, `accept`, `accept-encoding`, `connection`, `origin`, `referer`, and all `sec-*` are excluded), `request_body` (buffered, capped).
-- Block `403` + `{"detail":"Suspicious activity detected"}`; oversize `413`; body read error or engine panic `500` + `{"detail":"Security check failed"}`. Fail-secure, unlike the TypeScript adapters.
+- Block `403` + `Suspicious activity detected`; oversize `413`; body read error or engine panic `500` + `Security check failed`. Fail-secure, unlike the TypeScript adapters.
 - `Router::layer` does not wrap the fallback: unmatched paths answer `404` without passing the guard. Document this rather than "fixing" it here.
 
 ## Trait-Bound Facts (do not regress)
