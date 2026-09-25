@@ -34,8 +34,9 @@ jobs:
       # (../tower-guard-rs and, transitively, ../guard-core-rs) with
       # documented TODOs to switch to versioned crates once they are tagged.
       # Once both publish, these checkout steps drop in favor of the registry.
-      # (The tower-guard-rs checkout used to pin feat/engine-integration; it
-      # points at master now that the engine integration has merged.)
+      # (The tower-guard-rs checkout used to pin feat/engine-integration and
+      # then fix/plain-text-block-responses while tower-guard-rs#12 was open;
+      # with that PR merged it tracks master again.)
       - name: Checkout tower-guard-rs (path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:

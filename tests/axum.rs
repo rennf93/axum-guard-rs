@@ -102,12 +102,9 @@ async fn xss_payload_in_body_is_blocked() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert_eq!(
         response.headers().get(CONTENT_TYPE).expect("content type"),
-        "application/json"
+        "text/plain; charset=utf-8"
     );
-    assert_eq!(
-        body_text(response).await,
-        format!(r#"{{"detail":"{BLOCKED_MESSAGE}"}}"#)
-    );
+    assert_eq!(body_text(response).await, BLOCKED_MESSAGE);
 }
 
 #[tokio::test]
@@ -169,10 +166,7 @@ async fn body_over_the_cap_is_rejected_with_413() {
         .expect("response");
 
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
-    assert_eq!(
-        body_text(response).await,
-        format!(r#"{{"detail":"{OVERSIZE_MESSAGE}"}}"#)
-    );
+    assert_eq!(body_text(response).await, OVERSIZE_MESSAGE);
 }
 
 #[tokio::test]
