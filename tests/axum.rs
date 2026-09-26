@@ -10,6 +10,7 @@ use axum_guard_rs::{BLOCKED_MESSAGE, OVERSIZE_MESSAGE, default_config, with_guar
 use http::StatusCode;
 use http::header::CONTENT_TYPE;
 use http_body_util::BodyExt;
+use std::str::FromStr;
 use std::sync::Arc;
 use tower::{Service, ServiceExt};
 
@@ -214,4 +215,146 @@ async fn poll_ready_forwards_through_the_router() {
         std::task::Poll::Ready(result) => result.expect("ready"),
         std::task::Poll::Pending => panic!("router is always ready"),
     }
+}
+
+// --- the global IP gate (exempt_ips contract checklist) ---
+
+use axum::extract::ConnectInfo;
+use axum_guard_rs::{FORBIDDEN_MESSAGE, IpGateConfig, client_ip_layer};
+
+/// The checklist gate: a blacklisted exact IP and a blacklisted /24
+/// (192.0.2.x), an exempt exact IP and an exempt /28 (198.51.100.x), all
+/// disjoint.
+fn checklist_gate() -> IpGateConfig {
+    IpGateConfig::new(
+        [] as [&str; 0],
+        ["203.0.113.9", "192.0.2.0/24"],
+        ["198.51.100.7", "198.51.100.16/28"],
+    )
+    .expect("valid lists")
+}
+
+/// A router guarded by `gate`, with the client-ip layer applied after the
+/// guard so the extension is in place when the guard runs.
+fn gated_app(gate: IpGateConfig) -> Router {
+    Router::new()
+        .route("/hello", get(|| async { "hello" }))
+        .layer(with_guard(default_config()).with_ip_gate(gate))
+        .layer(client_ip_layer())
+}
+
+fn attributed_request(uri: &str, ip: &str) -> Request<Body> {
+    let peer = std::net::SocketAddr::new(std::net::IpAddr::from_str(ip).unwrap(), 45_000);
+    Request::builder()
+        .uri(uri)
+        .extension(ConnectInfo(peer))
+        .body(Body::empty())
+        .expect("request")
+}
+
+async fn gated_status(app: Router, request: Request<Body>) -> (StatusCode, String) {
+    let response = app.oneshot(request).await.expect("response");
+    let status = response.status();
+    (status, body_text(response).await)
+}
+
+#[tokio::test]
+async fn blacklisted_ip_is_denied_with_the_forbidden_body() {
+    let (status, body) = gated_status(
+        gated_app(checklist_gate()),
+        attributed_request("/hello", "203.0.113.9"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body, FORBIDDEN_MESSAGE);
+
+    let (status, body) = gated_status(
+        gated_app(checklist_gate()),
+        attributed_request("/hello", "192.0.2.77"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body, FORBIDDEN_MESSAGE);
+}
+
+#[tokio::test]
+async fn exempt_exact_and_cidr_ips_pass() {
+    let app = gated_app(checklist_gate());
+    let (status, _) = gated_status(app.clone(), attributed_request("/hello", "198.51.100.7")).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = gated_status(app, attributed_request("/hello", "198.51.100.20")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn exempt_ip_on_the_blacklist_is_still_denied() {
+    let gate = IpGateConfig::new([] as [&str; 0], ["198.51.100.7"], ["198.51.100.7"])
+        .expect("valid lists");
+    let (status, body) = gated_status(
+        gated_app(gate),
+        attributed_request("/hello", "198.51.100.7"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body, FORBIDDEN_MESSAGE);
+}
+
+#[tokio::test]
+async fn exemption_never_opens_a_restrictive_whitelist() {
+    let gate =
+        IpGateConfig::new(["192.0.2.1"], [] as [&str; 0], ["198.51.100.7"]).expect("valid lists");
+    let (status, body) = gated_status(
+        gated_app(gate),
+        attributed_request("/hello", "198.51.100.7"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body, FORBIDDEN_MESSAGE);
+}
+
+#[tokio::test]
+async fn an_attack_from_an_exempt_ip_is_still_blocked_by_detection() {
+    // Checklist: penetration detection still applies to exempt IPs.
+    let (status, body) = gated_status(
+        gated_app(checklist_gate()),
+        attributed_request("/files/../../etc/passwd", "198.51.100.7"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body, BLOCKED_MESSAGE);
+}
+
+#[tokio::test]
+async fn without_connect_info_the_gate_is_inert_and_detection_still_applies() {
+    let app = gated_app(checklist_gate());
+    let status = app
+        .clone()
+        .oneshot(get_request("/hello"))
+        .await
+        .expect("response")
+        .status();
+    assert_eq!(status, StatusCode::OK, "unattributed benign traffic passes");
+
+    let (status, body) = gated_status(app, get_request("/files/../../etc/passwd")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body, BLOCKED_MESSAGE);
+}
+
+#[test]
+fn invalid_exempt_entry_fails_closed_at_config_time() {
+    let error = IpGateConfig::new([] as [&str; 0], [] as [&str; 0], ["not-an-ip"]).unwrap_err();
+    assert_eq!(error.list, "exempt_ips");
+    assert_eq!(error.entry, "not-an-ip");
+}
+
+#[test]
+fn ipv4_mapped_peer_matches_v4_entries() {
+    // Checklist: IPv4-mapped parity, same matching semantics as the whitelist
+    // matcher (std parses the mapped form as an IPv6 address).
+    let mapped = std::net::IpAddr::from_str("::ffff:198.51.100.7").unwrap();
+    let gate = IpGateConfig::new(["198.51.100.0/28"], [] as [&str; 0], ["198.51.100.7"]).unwrap();
+    assert!(matches!(
+        gate.evaluate(mapped),
+        axum_guard_rs::IpGateVerdict::Allowed(decision) if decision.is_exempt
+    ));
 }

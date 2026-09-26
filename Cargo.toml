@@ -24,6 +24,9 @@ axum = { version = "0.8", default-features = false, features = ["http1", "json",
 # stack from source. The version pin stays in lockstep with the published
 # release.
 tower-guard-rs = { path = "../tower-guard-rs", version = "1.0.0" }
+# Direct handle on the `Layer`/`Service` traits the `ClientIpLayer` implements;
+# tower 0.5 is already the resolved version through tower-guard-rs.
+tower = { version = "0.5", default-features = false }
 
 [dev-dependencies]
 bytes = "1.10"
