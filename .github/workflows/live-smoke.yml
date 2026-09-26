@@ -43,7 +43,7 @@ jobs:
         with:
           # Merged as rennf93/tower-guard-rs#13; tracks master.
           repository: rennf93/tower-guard-rs
-          ref: feat/exempt-ips # TEMPORARY pin: tracks the feat/exempt-ips companion PR until it merges, then back to master
+          ref: master
           path: tower-checkout
           persist-credentials: false
 
@@ -55,7 +55,7 @@ jobs:
         with:
           # Merged as rennf93/guard-core-rs#22; tracks master.
           repository: rennf93/guard-core-rs
-          ref: feat/exempt-ips # TEMPORARY pin: tracks the feat/exempt-ips companion PR until it merges, then back to master
+          ref: master
           path: core-checkout
           persist-credentials: false
 
