@@ -2,6 +2,12 @@
 
 All notable changes to this project.
 
+## [Unreleased]
+
+### Changed
+
+- The `with_guard` example constructs the full `DetectConfig`, which now carries the engine's `detection_binary_min_run_length` knob (default 16) alongside the existing reference defaults; the body view itself gains the engine's content-type body-value extraction (form fields, multipart parts, embedded JSON leaves, mongo operator keys) and the binary-islands reduction for binary-dense uploads through the shared `tower-guard-rs` layer, with no axum-facing API change
+
 ## [1.0.0] - 2026-09-24
 
 ### Added
