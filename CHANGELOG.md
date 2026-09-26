@@ -4,6 +4,8 @@ All notable changes to this project.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-26
+
 ### Added
 
 - The global IP gate from `tower-guard-rs`, wired for axum: `with_guard(detect_config).with_ip_gate(IpGateConfig::new(whitelist, blacklist, exempt_ips))` denies a blacklisted client IP (or one a non-empty `whitelist` matches neither directly nor through `exempt_ips`) with `403 Forbidden` before detection, and passes everyone else through with the skip-state decision in the request extensions. `exempt_ips` is noise reduction for known-friendly automation, not immunity: it never adds a deny path, never opens the whitelist gate, and detection still scans exempt IPs. The new `client_ip_layer()` copies axum's `ConnectInfo<SocketAddr>` into the `GuardClientIp` extension the gate reads (apply it after the guard layer); unattributed requests are not gated and still screened. Invalid list entries fail closed at config construction
@@ -11,7 +13,9 @@ All notable changes to this project.
 
 ### Changed
 
+- `tower-guard-rs` dependency pinned to the published 1.1.0 release (path dep kept for local builds and CI against a sibling checkout), itself pinning `guard-core-engine` 4.1.0 (stateful sliding-window rate limiter and dynamic IP ban engine, tower stage with a reusable `decide()`, and the new detection stages: request size/content, user-agent, headers/auth, cloud provider blocking, geo blocking)
 - The `with_guard` example constructs the full `DetectConfig`, which now carries the engine's `detection_binary_min_run_length` knob (default 16) alongside the existing reference defaults; the body view itself gains the engine's content-type body-value extraction (form fields, multipart parts, embedded JSON leaves, mongo operator keys) and the binary-islands reduction for binary-dense uploads through the shared `tower-guard-rs` layer, with no axum-facing API change
+- 403/413/500 short-circuit responses now carry the bare message (`Suspicious activity detected`, `Payload too large`, `Security check failed`) as `text/plain; charset=utf-8`, matching the Python family's block-response convention, instead of the JSON `{"detail":"..."}` shape (the bodies come from `tower-guard-rs`, so no code change was needed here)
 
 ## [1.0.0] - 2026-09-24
 
@@ -28,9 +32,3 @@ All notable changes to this project.
 ### Changed
 
 - `tower-guard-rs` dependency pinned to the published 1.0.0 release (path dep kept for local builds and CI against a sibling checkout)
-
-## [Unreleased]
-
-### Changed
-
-- 403/413/500 short-circuit responses now carry the bare message (`Suspicious activity detected`, `Payload too large`, `Security check failed`) as `text/plain; charset=utf-8`, matching the Python family's block-response convention, instead of the JSON `{"detail":"..."}` shape (the bodies come from `tower-guard-rs`, so no code change was needed here)
