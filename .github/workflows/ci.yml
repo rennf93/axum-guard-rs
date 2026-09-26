@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           repository: rennf93/tower-guard-rs
-          ref: feat/body-value-extraction
+          ref: master
           path: tower-checkout
           persist-credentials: false
 
@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           repository: rennf93/guard-core-rs
-          ref: feat/body-form-scan-binary-islands
+          ref: master
           path: core-checkout
           persist-credentials: false
 
@@ -97,7 +97,7 @@ jobs:
           # TEMPORARY pin: the body-value extraction seam lands with
           # rennf93/tower-guard-rs#13; track master again after that merge.
           repository: rennf93/tower-guard-rs
-          ref: feat/body-value-extraction
+          ref: master
           path: tower-checkout
           persist-credentials: false
 
@@ -107,7 +107,7 @@ jobs:
           # TEMPORARY pin: body-value extraction lands with rennf93/guard-core-rs#22;
           # track master again after that merge.
           repository: rennf93/guard-core-rs
-          ref: feat/body-form-scan-binary-islands
+          ref: master
           path: core-checkout
           persist-credentials: false
 
