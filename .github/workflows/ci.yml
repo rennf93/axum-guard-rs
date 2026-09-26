@@ -94,16 +94,20 @@ jobs:
       - name: Checkout tower-guard-rs (path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          # TEMPORARY pin: the body-value extraction seam lands with
+          # rennf93/tower-guard-rs#13; track master again after that merge.
           repository: rennf93/tower-guard-rs
-          ref: master
+          ref: feat/body-value-extraction
           path: tower-checkout
           persist-credentials: false
 
       - name: Checkout guard-core-rs (transitive path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          # TEMPORARY pin: body-value extraction lands with rennf93/guard-core-rs#22;
+          # track master again after that merge.
           repository: rennf93/guard-core-rs
-          ref: master
+          ref: feat/body-form-scan-binary-islands
           path: core-checkout
           persist-credentials: false
 
