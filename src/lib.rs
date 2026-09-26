@@ -82,9 +82,8 @@ use tower::{Layer, Service};
 /// Copy the axum connection info into the extension the IP gate reads.
 ///
 /// `ConnectInfo<SocketAddr>` is only present when the router is served with
-/// [`into_make_service_with_connect_info`](axum::Router::into_make_service_with_connect_info).
-/// The layer copies its peer address into
-/// [`GuardClientIp`](tower_guard_rs::GuardClientIp), the extension
+/// `into_make_service_with_connect_info::<SocketAddr>()`. The layer copies
+/// its peer address into [`GuardClientIp`], the extension
 /// [`GuardLayer::with_ip_gate`] evaluates. Apply it **after** the guard layer
 /// so it wraps the outside: axum runs the last-added layer first, and the
 /// guard needs the extension in place when the request arrives.
