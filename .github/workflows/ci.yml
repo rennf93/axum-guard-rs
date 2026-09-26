@@ -34,11 +34,9 @@ jobs:
       # (../tower-guard-rs and, transitively, ../guard-core-rs) with
       # documented TODOs to switch to versioned crates once they are tagged.
       # Once both publish, these checkout steps drop in favor of the registry.
-      # TEMPORARY pins: the body-value extraction this adapter documents (and
-      # the tower-guard-rs seam that consumes it) live on
-      # feat/body-form-scan-binary-islands until the engine merges it and on
-      # feat/body-value-extraction until tower-guard-rs merges it. Track
-      # master again after those merges (same dance as the previous
+      # The TEMPORARY pins from the body-value extraction work are history:
+      # guard-core-rs and tower-guard-rs both merged, so these checkouts
+      # track master again (same dance as the earlier
       # fix/plain-text-block-responses pin).
       - name: Checkout tower-guard-rs (path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -94,8 +92,7 @@ jobs:
       - name: Checkout tower-guard-rs (path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          # TEMPORARY pin: the body-value extraction seam lands with
-          # rennf93/tower-guard-rs#13; track master again after that merge.
+          # Merged as rennf93/tower-guard-rs#13; tracks master.
           repository: rennf93/tower-guard-rs
           ref: master
           path: tower-checkout
@@ -104,8 +101,7 @@ jobs:
       - name: Checkout guard-core-rs (transitive path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          # TEMPORARY pin: body-value extraction lands with rennf93/guard-core-rs#22;
-          # track master again after that merge.
+          # Merged as rennf93/guard-core-rs#22; tracks master.
           repository: rennf93/guard-core-rs
           ref: master
           path: core-checkout
