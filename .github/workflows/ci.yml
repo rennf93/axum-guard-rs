@@ -34,14 +34,17 @@ jobs:
       # (../tower-guard-rs and, transitively, ../guard-core-rs) with
       # documented TODOs to switch to versioned crates once they are tagged.
       # Once both publish, these checkout steps drop in favor of the registry.
-      # (The tower-guard-rs checkout used to pin feat/engine-integration and
-      # then fix/plain-text-block-responses while tower-guard-rs#12 was open;
-      # with that PR merged it tracks master again.)
+      # TEMPORARY pins: the body-value extraction this adapter documents (and
+      # the tower-guard-rs seam that consumes it) live on
+      # feat/body-form-scan-binary-islands until the engine merges it and on
+      # feat/body-value-extraction until tower-guard-rs merges it. Track
+      # master again after those merges (same dance as the previous
+      # fix/plain-text-block-responses pin).
       - name: Checkout tower-guard-rs (path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           repository: rennf93/tower-guard-rs
-          ref: master
+          ref: feat/body-value-extraction
           path: tower-checkout
           persist-credentials: false
 
@@ -49,7 +52,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           repository: rennf93/guard-core-rs
-          ref: master
+          ref: feat/body-form-scan-binary-islands
           path: core-checkout
           persist-credentials: false
 
@@ -91,16 +94,20 @@ jobs:
       - name: Checkout tower-guard-rs (path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          # TEMPORARY pin: the body-value extraction seam lands with
+          # rennf93/tower-guard-rs#13; track master again after that merge.
           repository: rennf93/tower-guard-rs
-          ref: master
+          ref: feat/body-value-extraction
           path: tower-checkout
           persist-credentials: false
 
       - name: Checkout guard-core-rs (transitive path dependency)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          # TEMPORARY pin: body-value extraction lands with rennf93/guard-core-rs#22;
+          # track master again after that merge.
           repository: rennf93/guard-core-rs
-          ref: master
+          ref: feat/body-form-scan-binary-islands
           path: core-checkout
           persist-credentials: false
 
