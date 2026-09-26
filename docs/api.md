@@ -39,6 +39,47 @@ A body larger than the cap is rejected with `413 Payload Too Large` rather
 than forwarded unscanned. A cap of `0` rejects every request that carries a
 non-empty body.
 
+## The IP gate: `with_ip_gate` + `client_ip_layer`
+
+The global IP gate from `tower-guard-rs`: `whitelist`, `blacklist`, and
+`exempt_ips`, parsed once at construction (invalid entry is a config error,
+fail closed) and evaluated before detection:
+
+```rust
+use axum_guard_rs::{IpGateConfig, client_ip_layer, default_config, with_guard};
+
+let gate = IpGateConfig::new(
+    [] as [&str; 0],
+    ["203.0.113.9"],
+    ["198.51.100.7", "198.51.100.16/28"],
+)
+.expect("valid lists");
+
+let app: Router = Router::new()
+    .layer(with_guard(default_config()).with_ip_gate(gate))
+    .layer(client_ip_layer());
+```
+
+A blacklisted IP, or an IP a non-empty `whitelist` matches neither directly
+nor through `exempt_ips`, is denied with `403 Forbidden` (`Forbidden` body)
+before detection. `client_ip_layer()` copies axum's
+`ConnectInfo<SocketAddr>` (present when the router is served with
+`into_make_service_with_connect_info::<SocketAddr>()`) into the
+`GuardClientIp` extension the gate reads; apply it **after** the guard layer
+(axum runs the last-added layer first). Requests without connect info are not
+attributed: the gate does not run and detection still screens them.
+
+**exempt_ips vs whitelist.** `exempt_ips` is noise reduction for
+known-friendly automation (monitoring probes, VPN egress, a partner's
+server), not immunity: it sets the same skip state a whitelist match sets
+(`IpGateDecision` in the request extensions) but never adds a deny path and
+never opens the whitelist gate. The blacklist, bans-style checks, and
+detection still apply to exempt IPs - an attack payload from an exempt IP is
+still `403 Suspicious activity detected`. The Rust family ships no rate
+limiter, user-agent filter, cloud-provider blocker, or violation counter yet;
+a stage that lands later must skip exactly what the reference skips for a
+whitelist match and never skip detection.
+
 ## Configuration
 
 ### `default_config()`
@@ -77,7 +118,9 @@ From `tower-guard-rs`:
 | `BoxError` | Boxed error type used by the guard body |
 | `default_config` | Reference default `DetectConfig` |
 | `DetectConfig`, `DetectVerdict`, `Threat` | Engine types from `guard_core_engine::detect` |
-| `BLOCKED_MESSAGE`, `OVERSIZE_MESSAGE`, `FAILURE_MESSAGE` | Refusal message bodies (`"Suspicious activity detected"`, `"Payload too large"`, `"Security check failed"`) |
+| `BLOCKED_MESSAGE`, `OVERSIZE_MESSAGE`, `FAILURE_MESSAGE`, `FORBIDDEN_MESSAGE` | Refusal message bodies (`"Suspicious activity detected"`, `"Payload too large"`, `"Security check failed"`, `"Forbidden"`) |
+| `GuardClientIp` | Extension type the IP gate reads the client IP from |
+| `IpGateConfig`, `IpGateDecision`, `IpGateDenial`, `IpGateError`, `IpGateVerdict` | Engine types from `guard_core_engine::ip_gate` |
 
 ## Behavior
 

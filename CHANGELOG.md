@@ -4,6 +4,11 @@ All notable changes to this project.
 
 ## [Unreleased]
 
+### Added
+
+- The global IP gate from `tower-guard-rs`, wired for axum: `with_guard(detect_config).with_ip_gate(IpGateConfig::new(whitelist, blacklist, exempt_ips))` denies a blacklisted client IP (or one a non-empty `whitelist` matches neither directly nor through `exempt_ips`) with `403 Forbidden` before detection, and passes everyone else through with the skip-state decision in the request extensions. `exempt_ips` is noise reduction for known-friendly automation, not immunity: it never adds a deny path, never opens the whitelist gate, and detection still scans exempt IPs. The new `client_ip_layer()` copies axum's `ConnectInfo<SocketAddr>` into the `GuardClientIp` extension the gate reads (apply it after the guard layer); unattributed requests are not gated and still screened. Invalid list entries fail closed at config construction
+- Re-exports for the gate surface (`IpGateConfig`, `IpGateDecision`, `IpGateDenial`, `IpGateError`, `IpGateVerdict`, `GuardClientIp`, `FORBIDDEN_MESSAGE`)
+
 ### Changed
 
 - The `with_guard` example constructs the full `DetectConfig`, which now carries the engine's `detection_binary_min_run_length` knob (default 16) alongside the existing reference defaults; the body view itself gains the engine's content-type body-value extraction (form fields, multipart parts, embedded JSON leaves, mongo operator keys) and the binary-islands reduction for binary-dense uploads through the shared `tower-guard-rs` layer, with no axum-facing API change

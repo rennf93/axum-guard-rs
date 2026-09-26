@@ -69,9 +69,90 @@
 //! ```
 
 pub use tower_guard_rs::{
-    BLOCKED_MESSAGE, BoxError, DetectConfig, DetectVerdict, FAILURE_MESSAGE, GuardBody, GuardLayer,
-    GuardService, OVERSIZE_MESSAGE, Threat, default_config,
+    BLOCKED_MESSAGE, BoxError, DetectConfig, DetectVerdict, FAILURE_MESSAGE, FORBIDDEN_MESSAGE,
+    GuardBody, GuardClientIp, GuardLayer, GuardService, IpGateConfig, IpGateDecision, IpGateDenial,
+    IpGateError, IpGateVerdict, OVERSIZE_MESSAGE, Threat, default_config,
 };
+
+use axum::extract::connect_info::ConnectInfo;
+use std::net::SocketAddr;
+use std::task::{Context, Poll};
+use tower::{Layer, Service};
+
+/// Copy the axum connection info into the extension the IP gate reads.
+///
+/// `ConnectInfo<SocketAddr>` is only present when the router is served with
+/// `into_make_service_with_connect_info::<SocketAddr>()`. The layer copies
+/// its peer address into [`GuardClientIp`], the extension
+/// [`GuardLayer::with_ip_gate`] evaluates. Apply it **after** the guard layer
+/// so it wraps the outside: axum runs the last-added layer first, and the
+/// guard needs the extension in place when the request arrives.
+///
+/// # Example
+///
+/// ```
+/// use axum::Router;
+/// use axum::extract::ConnectInfo;
+/// use axum_guard_rs::{IpGateConfig, client_ip_layer, with_guard};
+///
+/// let gate = IpGateConfig::new(
+///     [] as [&str; 0],
+///     ["203.0.113.9"],
+///     ["198.51.100.0/28"],
+/// )
+/// .expect("valid lists");
+///
+/// let app: Router = Router::new()
+///     .layer(with_guard(axum_guard_rs::default_config()).with_ip_gate(gate))
+///     .layer(client_ip_layer());
+/// # let _ = app;
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ClientIpLayer;
+
+impl<S> Layer<S> for ClientIpLayer {
+    type Service = ClientIpService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        ClientIpService { inner }
+    }
+}
+
+/// The [`tower::Service`] produced by [`ClientIpLayer`].
+#[derive(Debug, Clone)]
+pub struct ClientIpService<S> {
+    inner: S,
+}
+
+impl<S, B> Service<axum::extract::Request<B>> for ClientIpService<S>
+where
+    S: Service<axum::extract::Request<B>>,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut request: axum::extract::Request<B>) -> Self::Future {
+        let client_ip = request
+            .extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|ConnectInfo(peer)| tower_guard_rs::GuardClientIp(peer.ip()));
+        if let Some(client_ip) = client_ip {
+            request.extensions_mut().insert(client_ip);
+        }
+        self.inner.call(request)
+    }
+}
+
+/// A [`ClientIpLayer`], in the style of the axum layer constructors.
+#[must_use]
+pub const fn client_ip_layer() -> ClientIpLayer {
+    ClientIpLayer
+}
 
 /// Build the Guard layer for an axum [`Router`](axum::Router).
 ///
